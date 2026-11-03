@@ -1,0 +1,8 @@
+{
+  "appId": "dev.daggerfalljs.enhanced",
+  "appName": "Daggerfall Enhanced",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  }
+}

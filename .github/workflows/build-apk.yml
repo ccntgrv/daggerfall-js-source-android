@@ -43,6 +43,18 @@ jobs:
           EOF
           ls www www/play
 
+      - name: Scale UI via viewport width
+        run: |
+          python3 - <<'EOF'
+          import re
+          p = "www/play/index.html"
+          s = open(p, encoding="utf-8").read()
+          s = re.sub(r'<meta[^>]*name=["\']viewport["\'][^>]*>', '', s, flags=re.I)
+          s = re.sub(r'(<head[^>]*>)', r'\1<meta name="viewport" content="width=1100, user-scalable=no">', s, count=1)
+          open(p, "w", encoding="utf-8").write(s)
+          EOF
+          grep -o '<meta name="viewport"[^>]*>' www/play/index.html
+
       - name: Add Capacitor + Android platform
         run: |
           npm install --no-save @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7

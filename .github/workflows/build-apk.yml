@@ -7,6 +7,8 @@ on:
     paths:
       - ".github/workflows/build-apk.yml"
       - "capacitor.config.json"
+      - "android-shim/**"
+      - "debug.keystore"
 
 jobs:
   apk:
@@ -43,21 +45,22 @@ jobs:
           EOF
           ls www www/play
 
-      - name: Scale UI via viewport width
+      - name: Inject Android export shim
         run: |
+          cp android-shim/android-bridge.js www/play/android-bridge.js
           python3 - <<'EOF'
           import re
           p = "www/play/index.html"
           s = open(p, encoding="utf-8").read()
-          s = re.sub(r'<meta[^>]*name=["\']viewport["\'][^>]*>', '', s, flags=re.I)
-          s = re.sub(r'(<head[^>]*>)', r'\1<meta name="viewport" content="width=1100, user-scalable=no">', s, count=1)
+          tag = '<script src="android-bridge.js"></script>'
+          s, n = re.subn(r'(<head[^>]*>)', r'\1' + tag, s, count=1)
+          print("shim injected:", n == 1)
           open(p, "w", encoding="utf-8").write(s)
           EOF
-          grep -o '<meta name="viewport"[^>]*>' www/play/index.html
 
       - name: Add Capacitor + Android platform
         run: |
-          npm install --no-save @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7
+          npm install --no-save @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7 @capacitor/filesystem@7 @capacitor/share@7
           npx cap add android
           npx cap sync android
 
@@ -66,6 +69,15 @@ jobs:
           sed -i 's/android:name="\.MainActivity"/android:name=".MainActivity" android:screenOrientation="sensorLandscape"/' \
             android/app/src/main/AndroidManifest.xml
           grep -n "screenOrientation" android/app/src/main/AndroidManifest.xml
+
+      - name: Use a stable signing key and rising version code
+        run: |
+          # Same key every build = Android lets new APKs update the installed app
+          mkdir -p "$HOME/.android"
+          cp debug.keystore "$HOME/.android/debug.keystore"
+          # Rising versionCode so each build counts as an update
+          sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/" android/app/build.gradle
+          grep -n "versionCode" android/app/build.gradle
 
       - name: Build debug APK
         working-directory: android
